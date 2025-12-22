@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "rule34scraper"
 version = "0.1.0"
-description = "A fast Python API wrapper for rhi.by image board"
+description = "A fast Python API wrapper for rule34 image board"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"

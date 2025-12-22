@@ -1,4 +1,4 @@
-"""RHI API Wrapper - A simple wrapper for rhi.by image board."""
+"""RHI API Wrapper - A simple wrapper for rule34 image board."""
 
 from .models import Post, Tag, PostComment, PostDetails, UserProfile
 from .client import R34Client, AsyncR34Client
