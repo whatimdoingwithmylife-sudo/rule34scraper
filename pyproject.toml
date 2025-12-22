@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "whatimdoingwithmylife-sudo", email = "https://github.com/whatimdoingwithmylife-sudo" }
+    { name = "whatimdoingwithmylife-sudo" }
 ]
 keywords = ["api", "wrapper", "imageboard", "scraper"]
 classifiers = [
