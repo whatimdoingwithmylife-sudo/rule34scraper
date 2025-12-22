@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rule34wrapper"
+name = "rule34scraper"
 version = "0.1.0"
 description = "A fast Python API wrapper for rhi.by image board"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Your Name", email = "you@example.com" }
+    { name = "whatimdoingwithmylife-sudo", email = "https://github.com/whatimdoingwithmylife-sudo" }
 ]
 keywords = ["api", "wrapper", "imageboard", "scraper"]
 classifiers = [
@@ -35,8 +35,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/rule34wrapper"
-Repository = "https://github.com/yourusername/rule34wrapper"
+Homepage = "https://github.com/whatimdoingwithmylife-sudo/rule34wrapper"
+Repository = "https://github.com/whatimdoingwithmylife-sudo/rule34wrapper"
 
 [tool.hatch.build.targets.wheel]
-packages = ["rule34wrapper"]
+packages = ["rule34scraper"]

@@ -1,5 +1,3 @@
-"""HTML parsing logic for RHI pages using selectolax (Lexbor engine)."""
-
 import re
 from typing import List, Optional, Tuple
 from selectolax.lexbor import LexborHTMLParser, LexborNode
@@ -10,14 +8,11 @@ DEFAULT_BASE_URL = "https://rule34.xxx"
 
 
 class PostParser:
-    """Parser for post thumbnails from the image list."""
-
     SCORE_PATTERN = re.compile(r"score:(\d+)")
     RATING_PATTERN = re.compile(r"rating:(\w+)")
 
     @classmethod
     def parse_html(cls, html: str, base_url: str = DEFAULT_BASE_URL) -> List[Post]:
-        """Parse HTML and extract all posts from the image list."""
         parser = LexborHTMLParser(html)
         posts = []
 
@@ -30,7 +25,6 @@ class PostParser:
 
     @classmethod
     def _parse_thumb(cls, thumb: LexborNode, base_url: str = DEFAULT_BASE_URL) -> Optional[Post]:
-        """Parse a single thumbnail span into a Post."""
         anchor = thumb.css_first("a")
         img = thumb.css_first("a > img")
 
@@ -40,30 +34,24 @@ class PostParser:
         attrs = anchor.attributes
         img_attrs = img.attributes
 
-        # Extract ID (remove leading 'p')
         raw_id = attrs.get("id", "")
         post_id = int(raw_id.lstrip("p")) if raw_id and raw_id.lstrip("p").isdigit() else 0
 
-        # Extract preview URL
         preview_url = img_attrs.get("src", "")
 
-        # Extract tags from alt attribute
         alt_text = img_attrs.get("alt", "")
         tags = alt_text.split() if alt_text else []
 
-        # Extract score and rating from title
         title = img_attrs.get("title", "")
         score = cls._extract_score(title)
         rating = cls._extract_rating(title)
 
-        # Build detail URL
         href = attrs.get("href", "")
         if href.startswith("http"):
             detail_url = href
         else:
             detail_url = f"{base_url.rstrip('/')}/{href.lstrip('/')}"
 
-        # Check if video (class attribute)
         img_class = img_attrs.get("class", "")
         is_video = "webm-thumb" in img_class
 
@@ -79,25 +67,20 @@ class PostParser:
 
     @classmethod
     def _extract_score(cls, title: str) -> int:
-        """Extract score from title string."""
         match = cls.SCORE_PATTERN.search(title)
         return int(match.group(1)) if match else 0
 
     @classmethod
     def _extract_rating(cls, title: str) -> str:
-        """Extract rating from title string."""
         match = cls.RATING_PATTERN.search(title)
         return match.group(1) if match else "unknown"
 
 
 class SidebarParser:
-    """Parser for sidebar tags."""
-
     COUNT_CLEAN = re.compile(r"[^\d]")
 
     @classmethod
     def parse_html(cls, html: str) -> List[Tag]:
-        """Parse HTML and extract all tags from the sidebar."""
         parser = LexborHTMLParser(html)
         tags = []
 
@@ -114,10 +97,8 @@ class SidebarParser:
 
     @classmethod
     def _parse_tag_item(cls, li: LexborNode) -> Optional[Tag]:
-        """Parse a single li element into a Tag."""
         attrs = li.attributes
 
-        # Extract type from class (e.g., tag-type-copyright -> copyright)
         classes = attrs.get("class", "")
         tag_type = "general"
         for c in classes.split():
@@ -125,13 +106,11 @@ class SidebarParser:
                 tag_type = c.replace("tag-type-", "")
                 break
 
-        # Extract name from the tag link
         tag_link = li.css_first('a[href*="tags="]')
         if not tag_link:
             return None
         name = tag_link.text(strip=True)
 
-        # Extract count
         count_span = li.css_first("span.tag-count")
         count = 0
         if count_span:
@@ -143,8 +122,6 @@ class SidebarParser:
 
 
 class PostDetailsParser:
-    """Parser for individual post detail pages."""
-
     ID_PATTERN = re.compile(r"Id:\s*(\d+)")
     POSTED_PATTERN = re.compile(r"Posted:\s*(.*?)\s*by")
     IMAGE_JS_PATTERN = re.compile(r"image\s*=\s*(\{[^}]+\})")
@@ -153,24 +130,19 @@ class PostDetailsParser:
 
     @classmethod
     def parse_html(cls, html: str) -> Optional[PostDetails]:
-        """Parse post detail page HTML."""
         parser = LexborHTMLParser(html)
 
-        # Parse image dimensions from JS
         width, height = cls._parse_image_js(html)
 
-        # Get image URL
         img = parser.css_first("img#image")
         image_url = img.attributes.get("src", "") if img else ""
         sample_url = image_url
 
-        # Fallback to "Original image" link
         if not image_url:
             orig_link = parser.css_first('a[href*="images"]')
             if orig_link:
                 image_url = orig_link.attributes.get("href", "")
 
-        # Parse stats
         post_id = 0
         rating = "unknown"
         score = 0
@@ -210,10 +182,7 @@ class PostDetailsParser:
                     if source_link:
                         source_url = source_link.attributes.get("href")
 
-        # Parse tags
         tags = SidebarParser.parse_html(html)
-
-        # Parse comments
         comments = CommentParser.parse_html(html)
 
         return PostDetails(
@@ -233,7 +202,6 @@ class PostDetailsParser:
 
     @classmethod
     def _parse_image_js(cls, html: str) -> Tuple[int, int]:
-        """Extract width/height from JS image object."""
         match = cls.IMAGE_JS_PATTERN.search(html)
         if not match:
             return 0, 0
@@ -249,14 +217,11 @@ class PostDetailsParser:
 
 
 class CommentParser:
-    """Parser for post comments."""
-
     TIMESTAMP_PATTERN = re.compile(r"Posted on (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
     COMMENT_ID_PATTERN = re.compile(r"^c(\d+)$")
 
     @classmethod
     def parse_html(cls, html: str) -> List[PostComment]:
-        """Parse comments from post detail page."""
         parser = LexborHTMLParser(html)
         comments = []
 
@@ -276,7 +241,6 @@ class CommentParser:
 
     @classmethod
     def _parse_comment(cls, div: LexborNode) -> Optional[PostComment]:
-        """Parse a single comment div."""
         attrs = div.attributes
 
         raw_id = attrs.get("id", "")
@@ -321,14 +285,11 @@ class CommentParser:
 
 
 class UserProfileParser:
-    """Parser for user profile pages."""
-
     USER_ID_PATTERN = re.compile(r"id=(\d+)")
     NUM_CLEAN = re.compile(r"[^\d]")
 
     @classmethod
     def parse_html(cls, html: str, base_url: str = DEFAULT_BASE_URL) -> Optional[UserProfile]:
-        """Parse user profile page HTML."""
         parser = LexborHTMLParser(html)
 
         h2 = parser.css_first("#content > h2")
@@ -399,7 +360,6 @@ class UserProfileParser:
 
     @classmethod
     def _parse_image_list(cls, container: LexborNode, base_url: str) -> List[Post]:
-        """Parse posts from an image-list container."""
         posts = []
         for thumb in container.css("span.thumb"):
             post = PostParser._parse_thumb(thumb, base_url)

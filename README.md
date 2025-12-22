@@ -1,11 +1,11 @@
-# rule34wrapper
+# rule34scraper
 
 A fast Python API wrapper for booru-style image boards using selectolax (Lexbor engine).
 
 ## Installation
 
 ```bash
-pip install rule34wrapper
+pip install rule34scraper
 ```
 
 ## Usage
@@ -13,7 +13,7 @@ pip install rule34wrapper
 ### Basic Usage
 
 ```python
-from rule34wrapper import R34Client
+from rule34scraper import R34Client
 
 with R34Client() as client:
     # Search posts by tags
@@ -34,7 +34,7 @@ with R34Client() as client:
 ### Custom Base URL
 
 ```python
-from rule34wrapper import R34Client
+from rule34scraper import R34Client
 
 # Use a different booru site
 client = R34Client(
@@ -54,7 +54,7 @@ client = R34Client(
 
 ```python
 import asyncio
-from rule34wrapper import AsyncR34Client
+from rule34scraper import AsyncR34Client
 
 async def main():
     async with AsyncR34Client() as client:

@@ -1,12 +1,9 @@
-"""Data models for RHI API."""
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 
 @dataclass
 class Post:
-    """Represents a single thumbnail entry in the grid."""
     id: int
     preview_url: str
     tags: List[str]
@@ -18,7 +15,6 @@ class Post:
 
 @dataclass
 class Tag:
-    """Represents a tag found in the sidebar."""
     name: str
     count: int
     type: str
@@ -26,7 +22,6 @@ class Tag:
 
 @dataclass
 class PostComment:
-    """Represents a user comment on a post."""
     id: int
     username: str
     text: str
@@ -36,7 +31,6 @@ class PostComment:
 
 @dataclass
 class PostDetails:
-    """Represents detailed metadata of a specific post."""
     id: int
     image_url: str
     sample_url: str
@@ -53,7 +47,6 @@ class PostDetails:
 
 @dataclass
 class UserProfile:
-    """Represents a user's profile page."""
     username: str
     id: int
     join_date: str
