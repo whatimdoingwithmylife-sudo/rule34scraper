@@ -1,7 +1,7 @@
 """RHI API Wrapper - A simple wrapper for rule34 image board."""
 
 from .models import Post, Tag, PostComment, PostDetails, UserProfile
-from .client import R34Client, AsyncR34Client
+from .client import R34Client, AsyncR34Client, RateLimitError
 from .parser import (
     PostParser,
     SidebarParser,
@@ -18,6 +18,7 @@ __all__ = [
     "UserProfile",
     "R34Client",
     "AsyncR34Client",
+    "RateLimitError",
     "PostParser",
     "SidebarParser",
     "PostDetailsParser",

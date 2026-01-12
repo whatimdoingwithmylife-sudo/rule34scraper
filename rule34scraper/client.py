@@ -1,12 +1,34 @@
 """HTTP client for RHI API."""
 
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import httpx
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 from .models import Post, Tag, PostDetails, UserProfile
 from .parser import PostParser, SidebarParser, PostDetailsParser, UserProfileParser
+
+logger = logging.getLogger(__name__)
+
+
+class RateLimitError(Exception):
+    """Raised when the server returns a 429 Too Many Requests response."""
+    pass
+
+
+def _check_rate_limit(response: httpx.Response) -> httpx.Response:
+    """Check response for rate limiting and raise if detected."""
+    if response.status_code == 429:
+        raise RateLimitError(f"Rate limited: {response.status_code}")
+    return response
 
 DEFAULT_BASE_URL = "https://rule34.xxx/index.php"
 DEFAULT_POSTS_PER_PAGE = 42
@@ -27,6 +49,7 @@ class R34Client:
         timeout: float = 30.0,
         posts_per_page: int = DEFAULT_POSTS_PER_PAGE,
         headers: Optional[Dict[str, str]] = None,
+        max_retries: int = 5,
     ):
         """Initialize the client.
 
@@ -35,12 +58,14 @@ class R34Client:
             timeout: Request timeout in seconds.
             posts_per_page: Number of posts per page (for pagination offset).
             headers: Custom headers to use (merges with defaults).
+            max_retries: Maximum number of retry attempts for rate-limited requests.
         """
         self.base_url = base_url.rstrip("/")
         self.posts_per_page = posts_per_page
         self._timeout = timeout
         self._headers = {**DEFAULT_HEADERS, **(headers or {})}
         self._client: Optional[httpx.Client] = None
+        self._max_retries = max_retries
 
     @property
     def client(self) -> httpx.Client:
@@ -48,6 +73,21 @@ class R34Client:
         if self._client is None:
             self._client = httpx.Client(timeout=self._timeout, headers=self._headers)
         return self._client
+
+    def _get(self, url: str, params: Dict = None) -> httpx.Response:
+        """Execute GET request with retry logic for rate limits."""
+        @retry(
+            stop=stop_after_attempt(self._max_retries),
+            wait=wait_exponential(multiplier=1, min=1.0, max=60.0),
+            retry=retry_if_exception_type((RateLimitError, httpx.TransportError)),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        def _request() -> httpx.Response:
+            response = self.client.get(url, params=params)
+            return _check_rate_limit(response)
+        
+        return _request()
 
     def close(self) -> None:
         """Close the HTTP client."""
@@ -74,7 +114,7 @@ class R34Client:
         offset = (page - 1) * self.posts_per_page
         params = {"page": "post", "s": "list", "tags": tags, "pid": offset}
 
-        response = self.client.get(self.base_url, params=params)
+        response = self._get(self.base_url, params=params)
         response.raise_for_status()
 
         html = response.text
@@ -96,14 +136,14 @@ class R34Client:
     def get_post_details(self, post_id: int) -> Optional[PostDetails]:
         """Fetch detailed info for a specific post."""
         params = {"page": "post", "s": "view", "id": post_id}
-        response = self.client.get(self.base_url, params=params)
+        response = self._get(self.base_url, params=params)
         response.raise_for_status()
         return PostDetailsParser.parse_html(response.text)
 
     def get_user_profile(self, username: str) -> Optional[UserProfile]:
         """Fetch user profile by username."""
         params = {"page": "account", "s": "profile", "uname": username}
-        response = self.client.get(self.base_url, params=params)
+        response = self._get(self.base_url, params=params)
         response.raise_for_status()
         return UserProfileParser.parse_html(response.text, self.base_url)
 
@@ -170,6 +210,7 @@ class AsyncR34Client:
         timeout: float = 30.0,
         posts_per_page: int = DEFAULT_POSTS_PER_PAGE,
         headers: Optional[Dict[str, str]] = None,
+        max_retries: int = 5,
     ):
         """Initialize the async client.
 
@@ -178,12 +219,14 @@ class AsyncR34Client:
             timeout: Request timeout in seconds.
             posts_per_page: Number of posts per page.
             headers: Custom headers to use.
+            max_retries: Maximum number of retry attempts for rate-limited requests.
         """
         self.base_url = base_url.rstrip("/")
         self.posts_per_page = posts_per_page
         self._timeout = timeout
         self._headers = {**DEFAULT_HEADERS, **(headers or {})}
         self._client: Optional[httpx.AsyncClient] = None
+        self._max_retries = max_retries
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -191,6 +234,21 @@ class AsyncR34Client:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout, headers=self._headers)
         return self._client
+
+    async def _get(self, url: str, params: Dict = None) -> httpx.Response:
+        """Execute GET request with retry logic for rate limits."""
+        @retry(
+            stop=stop_after_attempt(self._max_retries),
+            wait=wait_exponential(multiplier=1, min=1.0, max=60.0),
+            retry=retry_if_exception_type((RateLimitError, httpx.TransportError)),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        async def _request() -> httpx.Response:
+            response = await self.client.get(url, params=params)
+            return _check_rate_limit(response)
+        
+        return await _request()
 
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -209,7 +267,7 @@ class AsyncR34Client:
         offset = (page - 1) * self.posts_per_page
         params = {"page": "post", "s": "list", "tags": tags, "pid": offset}
 
-        response = await self.client.get(self.base_url, params=params)
+        response = await self._get(self.base_url, params=params)
         response.raise_for_status()
 
         html = response.text
@@ -226,14 +284,14 @@ class AsyncR34Client:
     async def get_post_details(self, post_id: int) -> Optional[PostDetails]:
         """Fetch detailed info for a specific post."""
         params = {"page": "post", "s": "view", "id": post_id}
-        response = await self.client.get(self.base_url, params=params)
+        response = await self._get(self.base_url, params=params)
         response.raise_for_status()
         return PostDetailsParser.parse_html(response.text)
 
     async def get_user_profile(self, username: str) -> Optional[UserProfile]:
         """Fetch user profile by username."""
         params = {"page": "account", "s": "profile", "uname": username}
-        response = await self.client.get(self.base_url, params=params)
+        response = await self._get(self.base_url, params=params)
         response.raise_for_status()
         return UserProfileParser.parse_html(response.text, self.base_url)
 

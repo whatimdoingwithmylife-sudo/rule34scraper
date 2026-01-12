@@ -92,6 +92,7 @@ with R34Client() as client:
 | `timeout` | float | 30.0 | Request timeout in seconds |
 | `posts_per_page` | int | 42 | Posts per page for pagination |
 | `headers` | dict | Browser-like headers | Custom HTTP headers |
+| `max_retries` | int | 5 | Max retries for rate limits (429) |
 
 ## License
 
