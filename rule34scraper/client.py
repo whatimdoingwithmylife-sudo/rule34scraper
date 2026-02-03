@@ -163,7 +163,8 @@ class R34Client:
             "Referer": self.base_url,
         }
 
-        with httpx.stream("GET", url, headers=download_headers, follow_redirects=True, timeout=60.0) as response:
+        # Bolt: Reuse the client to enable connection pooling and reduce overhead
+        with self.client.stream("GET", url, headers=download_headers, follow_redirects=True, timeout=60.0) as response:
             response.raise_for_status()
             with open(path, "wb") as f:
                 for chunk in response.iter_bytes(chunk_size=chunk_size):
@@ -311,12 +312,12 @@ class AsyncR34Client:
             "Referer": self.base_url,
         }
 
-        async with httpx.AsyncClient(headers=download_headers, follow_redirects=True, timeout=60.0) as client:
-            async with client.stream("GET", url) as response:
-                response.raise_for_status()
-                with open(path, "wb") as f:
-                    async for chunk in response.aiter_bytes(chunk_size=chunk_size):
-                        f.write(chunk)
+        # Bolt: Reuse the client to enable connection pooling and reduce overhead
+        async with self.client.stream("GET", url, headers=download_headers, follow_redirects=True, timeout=60.0) as response:
+            response.raise_for_status()
+            with open(path, "wb") as f:
+                async for chunk in response.aiter_bytes(chunk_size=chunk_size):
+                    f.write(chunk)
 
         return path
 
