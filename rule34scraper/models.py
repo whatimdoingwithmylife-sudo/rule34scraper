@@ -3,17 +3,6 @@ from typing import List, Optional
 
 
 @dataclass
-class Post:
-    id: int
-    preview_url: str
-    tags: List[str]
-    score: int
-    rating: str
-    detail_url: str
-    is_video: bool = False
-
-
-@dataclass
 class Tag:
     name: str
     count: int
@@ -29,6 +18,24 @@ class PostComment:
     timestamp: str
 
 
+
+@dataclass
+class User:
+    name: str
+    id: Optional[int] = None
+
+
+@dataclass
+class Post:
+    id: int
+    preview_url: str
+    tags: List[str]
+    score: int
+    rating: str
+    detail_url: str
+    is_video: bool = False
+
+
 @dataclass
 class PostDetails:
     id: int
@@ -38,7 +45,7 @@ class PostDetails:
     height: int
     rating: str
     score: int
-    uploader: str
+    creator: User
     posted_at: str
     source_url: Optional[str]
     tags: List[Tag]

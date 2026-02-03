@@ -2,14 +2,14 @@ import re
 from typing import List, Optional, Tuple
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
-from .models import Post, Tag, PostComment, PostDetails, UserProfile
+from .models import Post, Tag, PostComment, PostDetails, UserProfile, User
 
 DEFAULT_BASE_URL = "https://rule34.xxx"
 
 
 class PostParser:
-    SCORE_PATTERN = re.compile(r"score:(\d+)")
-    RATING_PATTERN = re.compile(r"rating:(\w+)")
+    SCORE_PATTERN = re.compile(r"score:(\d+)", re.IGNORECASE)
+    RATING_PATTERN = re.compile(r"rating:(\w+)", re.IGNORECASE)
 
     @classmethod
     def parse_html(cls, html: str, base_url: str = DEFAULT_BASE_URL) -> List[Post]:
@@ -40,11 +40,14 @@ class PostParser:
         preview_url = img_attrs.get("src", "")
 
         alt_text = img_attrs.get("alt", "")
-        tags = alt_text.split() if alt_text else []
+        title_text = img_attrs.get("title", "")
+        # Combine both for metadata extraction as R34 is inconsistent
+        metadata_source = f"{alt_text} {title_text}"
 
-        title = img_attrs.get("title", "")
-        score = cls._extract_score(title)
-        rating = cls._extract_rating(title)
+        tags = alt_text.split() if alt_text else []
+        
+        score = cls._extract_score(metadata_source)
+        rating = cls._extract_rating(metadata_source)
 
         href = attrs.get("href", "")
         if href.startswith("http"):
@@ -123,7 +126,8 @@ class SidebarParser:
 
 class PostDetailsParser:
     ID_PATTERN = re.compile(r"Id:\s*(\d+)")
-    POSTED_PATTERN = re.compile(r"Posted:\s*(.*?)\s*by")
+    POSTED_PATTERN = re.compile(r"Posted:\s*(.*?)(?:\s*by|$)", re.IGNORECASE)
+    UPLOADER_PATTERN = re.compile(r"by\s+(.*)$", re.IGNORECASE)
     IMAGE_JS_PATTERN = re.compile(r"image\s*=\s*(\{[^}]+\})")
     WIDTH_PATTERN = re.compile(r"['\"]?width['\"]?\s*:\s*(\d+)")
     HEIGHT_PATTERN = re.compile(r"['\"]?height['\"]?\s*:\s*(\d+)")
@@ -146,7 +150,7 @@ class PostDetailsParser:
         post_id = 0
         rating = "unknown"
         score = 0
-        uploader = ""
+        uploader_name = "unknown"
         posted_at = ""
         source_url = None
 
@@ -173,9 +177,18 @@ class PostDetailsParser:
                 elif "Posted:" in text:
                     match = cls.POSTED_PATTERN.search(text)
                     posted_at = match.group(1).strip() if match else ""
+                    
+                    # Try to get uploader from link first
                     uploader_link = li.css_first("a")
                     if uploader_link:
-                        uploader = uploader_link.text(strip=True)
+                        uploader_name = uploader_link.text(strip=True)
+                    else:
+                        # Fallback to text parsing (for Anonymous)
+                        up_match = cls.UPLOADER_PATTERN.search(text)
+                        if up_match:
+                            uploader_name = up_match.group(1).strip()
+                        elif "by " in text:
+                            uploader_name = text.split("by ")[-1].strip()
 
                 elif "Source:" in text:
                     source_link = li.css_first("a")
@@ -193,7 +206,7 @@ class PostDetailsParser:
             height=height,
             rating=rating,
             score=score,
-            uploader=uploader,
+            creator=User(name=uploader_name),
             posted_at=posted_at,
             source_url=source_url,
             tags=tags,

@@ -1,6 +1,6 @@
 # rule34scraper
 
-A fast Python API wrapper for booru-style image boards using selectolax (Lexbor engine).
+A high-performance Python API wrapper for **Rule34.xxx** (and other booru-style image boards). Built for speed and reliability, it uses `selectolax` (Lexbor engine) for lightning-fast parsing and `httpx` for both synchronous and asynchronous requests.
 
 ## Installation
 
@@ -10,47 +10,40 @@ pip install rule34scraper
 
 ## Usage
 
-### Basic Usage
+### Basic Searching
+
+Returns a list of `Post` objects from a search result page.
 
 ```python
 from rule34scraper import R34Client
 
 with R34Client() as client:
-    # Search posts by tags
-    posts, tags = client.get_posts(tags="landscape", page=1)
+    # Search posts by tags (landscape, highres)
+    posts, tags = client.get_posts(tags="landscape highres", page=1)
     
     for post in posts:
-        print(f"ID: {post.id}, Score: {post.score}, Rating: {post.rating}")
-    
-    # Get post details
-    details = client.get_post_details(posts[0].id)
-    print(f"Image: {details.image_url}")
-    print(f"Size: {details.width}x{details.height}")
-    
-    # Download image
-    client.download_post(details, directory="downloads/")
+        print(f"ID: {post.id} | Score: {post.score} | Rating: {post.rating}")
 ```
 
-### Custom Base URL
+### Detailed Metadata (and Creator info)
+
+Search results provide basic info. For full metadata (including the **creator** name, high-res URLs, and comments), use `get_post_details`.
 
 ```python
-from rule34scraper import R34Client
-
-# Use a different booru site
-client = R34Client(
-    base_url="https://example.com/index.php",
-    posts_per_page=42,
-    timeout=60.0,
-)
-
-# Custom headers
-client = R34Client(
-    base_url="https://example.com/index.php",
-    headers={"Cookie": "session=abc123"},
-)
+with R34Client() as client:
+    posts, _ = client.get_posts(tags="fantasy")
+    
+    # Get deep details for a specific post
+    details = client.get_post_details(posts[0].id)
+    
+    print(f"Post #{details.id} | Creator: {details.creator.name}")
+    print(f"Full Image: {details.image_url} ({details.width}x{details.height})")
+    print(f"Tags: {', '.join([t.name for t in details.tags[:5]])}")
 ```
 
-### Async Client
+### Async Usage
+
+Ideal for high-throughput applications.
 
 ```python
 import asyncio
@@ -58,42 +51,55 @@ from rule34scraper import AsyncR34Client
 
 async def main():
     async with AsyncR34Client() as client:
-        posts, tags = await client.get_posts(tags="portrait", page=1)
-        details = await client.get_post_details(posts[0].id)
-        print(f"Image: {details.image_url}")
+        posts, _ = await client.get_posts(tags="portrait")
+        if posts:
+            details = await client.get_post_details(posts[0].id)
+            print(f"Async Detail Result: {details.id}")
 
 asyncio.run(main())
 ```
 
-### User Profiles
+### User Profiles & Favorites
 
 ```python
 with R34Client() as client:
     profile = client.get_user_profile("username")
-    print(f"User: {profile.username} (ID: {profile.id})")
-    print(f"Level: {profile.level}")
-    print(f"Posts: {profile.post_count}")
+    print(f"User: {profile.username} | Level: {profile.level}")
     print(f"Favorites: {profile.favorite_count}")
+    
+    # Access recent uploads or favorite posts
+    for fav in profile.recent_favorites[:5]:
+        print(f"Favorite Post: {fav.detail_url}")
 ```
+
+### Downloading Media
+
+```python
+with R34Client() as client:
+    details = client.get_post_details(123456)
+    # Automatically handles file naming and subdirectory creation
+    filepath = client.download_post(details, directory="my_collection")
+    print(f"Saved to: {filepath}")
+```
+
+## Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `base_url` | `str` | `https://rule34.xxx` | Base domain for requests. |
+| `timeout` | `float` | `30.0` | Request timeout in seconds. |
+| `posts_per_page` | `int` | `42` | Default count for pagination. |
+| `max_retries` | `int` | `5` | Retry attempts on rate limiting. |
+| `headers` | `dict` | *Browser-like* | Custom User-Agent or Cookies. |
 
 ## Models
 
-- `Post` - Thumbnail entry from search results
-- `PostDetails` - Full post metadata (image URL, dimensions, tags, comments)
-- `Tag` - Tag with name, count, and type
-- `PostComment` - User comment on a post
-- `UserProfile` - User profile with stats and recent posts
-
-## Configuration Options
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `base_url` | str | `https://rule34.xxx/index.php` | Base URL for the API |
-| `timeout` | float | 30.0 | Request timeout in seconds |
-| `posts_per_page` | int | 42 | Posts per page for pagination |
-| `headers` | dict | Browser-like headers | Custom HTTP headers |
-| `max_retries` | int | 5 | Max retries for rate limits (429) |
+- **Post**: Basic entry from listings (id, preview_url, tags, score, rating).
+- **PostDetails**: Full data from the post page (creator, image_url, sample_url, dimensions, comments).
+- **Tag**: Tag entry with `name`, `count`, and `type` (e.g., character, artist).
+- **UserProfile**: User stats, join date, and lists of recent uploads/favorites.
+- **PostComment**: Comment on a post with user, text, and timestamp.
 
 ## License
 
-MIT
+MIT - See the [LICENSE](LICENSE) file for details.

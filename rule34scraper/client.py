@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import httpx
+import aiofiles
 from tenacity import (
-    retry,
+    Retrying,
+    AsyncRetrying,
     stop_after_attempt,
     wait_exponential,
     retry_if_exception_type,
@@ -76,18 +78,17 @@ class R34Client:
 
     def _get(self, url: str, params: Dict = None) -> httpx.Response:
         """Execute GET request with retry logic for rate limits."""
-        @retry(
+        for attempt in Retrying(
             stop=stop_after_attempt(self._max_retries),
             wait=wait_exponential(multiplier=1, min=1.0, max=60.0),
             retry=retry_if_exception_type((RateLimitError, httpx.TransportError)),
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=True,
-        )
-        def _request() -> httpx.Response:
-            response = self.client.get(url, params=params)
-            return _check_rate_limit(response)
+        ):
+            with attempt:
+                response = self.client.get(url, params=params)
+                return _check_rate_limit(response)
         
-        return _request()
 
     def close(self) -> None:
         """Close the HTTP client."""
@@ -237,18 +238,19 @@ class AsyncR34Client:
 
     async def _get(self, url: str, params: Dict = None) -> httpx.Response:
         """Execute GET request with retry logic for rate limits."""
-        @retry(
+        async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self._max_retries),
             wait=wait_exponential(multiplier=1, min=1.0, max=60.0),
             retry=retry_if_exception_type((RateLimitError, httpx.TransportError)),
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=True,
-        )
-        async def _request() -> httpx.Response:
-            response = await self.client.get(url, params=params)
-            return _check_rate_limit(response)
-        
-        return await _request()
+        ):
+            with attempt:
+                response = await self.client.get(url, params=params)
+                return _check_rate_limit(response)
+                
+        # This line is theoretically unreachable due to reraise=True
+        raise RuntimeError("Unreachable code reached")
 
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -314,9 +316,9 @@ class AsyncR34Client:
         async with httpx.AsyncClient(headers=download_headers, follow_redirects=True, timeout=60.0) as client:
             async with client.stream("GET", url) as response:
                 response.raise_for_status()
-                with open(path, "wb") as f:
+                async with aiofiles.open(path, "wb") as f:
                     async for chunk in response.aiter_bytes(chunk_size=chunk_size):
-                        f.write(chunk)
+                        await f.write(chunk)
 
         return path
 

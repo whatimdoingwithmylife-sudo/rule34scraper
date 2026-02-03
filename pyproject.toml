@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rule34scraper"
-version = "1.0.2"
+version = "1.0.3"
 description = "A fast Python API wrapper for rule34 image board"
 readme = "README.md"
 license = "MIT"
@@ -27,6 +27,7 @@ dependencies = [
     "httpx>=0.24.0",
     "selectolax>=0.3.0",
     "tenacity>=8.2.0",
+    "aiofiles>=23.2.0",
 ]
 
 [project.optional-dependencies]
